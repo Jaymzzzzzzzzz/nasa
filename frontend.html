@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orrery Web Page</title>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: Arial, sans-serif; background-color: black; color: white; }
+        h1 { text-align: center; margin: 20px 0; font-size: 162px; color: white; } /* Larger font size for the heading */
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <h1>Orrery Web Page</h1> <!-- Adjusted heading size -->
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // Set up the scene, camera, and renderer
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Function to create planets with textures
+        const createPlanetWithTexture = (radius, textureURL) => {
+            const geometry = new THREE.SphereGeometry(radius, 32, 32);
+            const textureLoader = new THREE.TextureLoader();
+            const texture = textureLoader.load(textureURL);
+            const material = new THREE.MeshBasicMaterial({ map: texture });
+            return new THREE.Mesh(geometry, material);
+        };
+
+        // Function to create text labels (sprites) with higher resolution
+        const createTextSprite = (text) => {
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+
+            // Larger canvas and font for better readability
+            canvas.width = 256;
+            canvas.height = 64;
+
+            context.font = 'Bold 38px Arial'; // Larger font size for planet names
+            context.fillStyle = 'white';
+            context.fillText(text, 10, 50); // Adjusted positioning for better clarity
+
+            const texture = new THREE.CanvasTexture(canvas);
+            const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
+            const sprite = new THREE.Sprite(spriteMaterial);
+            sprite.scale.set(3, 1.5, 1.5); // Adjusted size for better visibility
+            return sprite;
+        };
+
+        // Placeholder URLs for planet textures (replace these with local paths or correct URLs)
+        const textures = {
+            mercury: 'https://th.bing.com/th/id/OIP.IZxY7ZVezNBABV6_JhPQXQHaF7?rs=1&pid=ImgDetMain', // Replace with actual texture
+            venus: 'https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/9b7029c3-9717-4658-9066-11c30aa24029/dctqvn0-4efa81e8-656a-4f2c-81f5-91ba4801704f.png/v1/fill/w_1280,h_640,q_80,strp/venus_texture_map_by_oleg_pluton_dctqvn0-fullview.jpg?token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1cm46YXBwOjdlMGQxODg5ODIyNjQzNzNhNWYwZDQxNWVhMGQyNmUwIiwiaXNzIjoidXJuOmFwcDo3ZTBkMTg4OTgyMjY0MzczYTVmMGQ0MTVlYTBkMjZlMCIsIm9iaiI6W1t7ImhlaWdodCI6Ijw9NjQwIiwicGF0aCI6IlwvZlwvOWI3MDI5YzMtOTcxNy00NjU4LTkwNjYtMTFjMzBhYTI0MDI5XC9kY3Rxdm4wLTRlZmE4MWU4LTY1NmEtNGYyYy04MWY1LTkxYmE0ODAxNzA0Zi5wbmciLCJ3aWR0aCI6Ijw9MTI4MCJ9XV0sImF1ZCI6WyJ1cm46c2VydmljZTppbWFnZS5vcGVyYXRpb25zIl19.IF758u8HVFFOkU2krmJsldgS1hri8LNEfuhAhOJSdbM',
+            earth: 'https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/e6059863-37fa-4986-9b43-0a116285360b/d4p5ydm-dc546360-e314-4eb3-876a-b216bbf509ea.png/v1/fill/w_1264,h_632,q_70,strp/earth___texture_by_peteridish_d4p5ydm-pre.jpg?token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1cm46YXBwOjdlMGQxODg5ODIyNjQzNzNhNWYwZDQxNWVhMGQyNmUwIiwiaXNzIjoidXJuOmFwcDo3ZTBkMTg4OTgyMjY0MzczYTVmMGQ0MTVlYTBkMjZlMCIsIm9iaiI6W1t7ImhlaWdodCI6Ijw9MTI4MiIsInBhdGgiOiJcL2ZcL2U2MDU5ODYzLTM3ZmEtNDk4Ni05YjQzLTBhMTE2Mjg1MzYwYlwvZDRwNXlkbS1kYzU0NjM2MC1lMzE0LTRlYjMtODc2YS1iMjE2YmJmNTA5ZWEucG5nIiwid2lkdGgiOiI8PTI1NjQifV1dLCJhdWQiOlsidXJuOnNlcnZpY2U6aW1hZ2Uub3BlcmF0aW9ucyJdfQ.AlDvOrse-9JdVuaGnd7Tw1vvhjoXVTtvzHE6olxpQF8',
+            mars: 'https://media.istockphoto.com/photos/martian-texture-picture-id507280516?k=6&m=507280516&s=612x612&w=0&h=-fPBQOqtuLBgAjGYR37bNQr36IvArdQf8Mtab-bOZ3k=',
+            jupiter: 'https://th.bing.com/th/id/OIP.AGyNj_QmkAiH4oK-CT4aAgHaDt?rs=1&pid=ImgDetMain',
+            saturn: 'https://th.bing.com/th/id/OIP.A47Dz0MvGprV-HZoDT3jOAHaDt?rs=1&pid=ImgDetMain',
+            uranus: 'https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/9b7029c3-9717-4658-9066-11c30aa24029/dcidlwl-c543247d-0944-4154-989d-c476099c2a00.png/v1/fill/w_1264,h_632,q_70,strp/uranus_texture_map_by_oleg_pluton_dcidlwl-pre.jpg?token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1cm46YXBwOjdlMGQxODg5ODIyNjQzNzNhNWYwZDQxNWVhMGQyNmUwIiwiaXNzIjoidXJuOmFwcDo3ZTBkMTg4OTgyMjY0MzczYTVmMGQ0MTVlYTBkMjZlMCIsIm9iaiI6W1t7ImhlaWdodCI6Ijw9NjQwIiwicGF0aCI6IlwvZlwvOWI3MDI5YzMtOTcxNy00NjU4LTkwNjYtMTFjMzBhYTI0MDI5XC9kY2lkbHdsLWM1NDMyNDdkLTA5NDQtNDE1NC05ODlkLWM0NzYwOTljMmEwMC5wbmciLCJ3aWR0aCI6Ijw9MTI4MCJ9XV0sImF1ZCI6WyJ1cm46c2VydmljZTppbWFnZS5vcGVyYXRpb25zIl19.5kvanY33Bnj7P-umH3gqqyvixh9tjLlgvBu_y9MaXYE',
+            neptune: 'https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/a0bebea3-9ff6-49c3-895a-452cc5c9da63/dfy9k8e-91389365-d1ab-4f09-930c-829af42b2da1.png?token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1cm46YXBwOjdlMGQxODg5ODIyNjQzNzNhNWYwZDQxNWVhMGQyNmUwIiwiaXNzIjoidXJuOmFwcDo3ZTBkMTg4OTgyMjY0MzczYTVmMGQ0MTVlYTBkMjZlMCIsIm9iaiI6W1t7InBhdGgiOiJcL2ZcL2EwYmViZWEzLTlmZjYtNDljMy04OTVhLTQ1MmNjNWM5ZGE2M1wvZGZ5OWs4ZS05MTM4OTM2NS1kMWFiLTRmMDktOTMwYy04MjlhZjQyYjJkYTEucG5nIn1dXSwiYXVkIjpbInVybjpzZXJ2aWNlOmZpbGUuZG93bmxvYWQiXX0.FIcJzV5CZb3Ou_obSkQObkK-Kl7ybEomntcTBCD78Eo',
+            sun: 'https://th.bing.com/th/id/OIP.fOOoRbs8pnLd1mYP1HfeHwHaDt?rs=1&pid=ImgDetMain'
+        };
+
+        // Create the Sun
+        const sun = createPlanetWithTexture(2, textures.sun);
+        scene.add(sun);
+
+        // Add "Sun" label above the Sun
+        const sunLabel = createTextSprite('Sun');
+        sunLabel.position.set(0, 2.5, 0); // Positioned above the Sun
+        scene.add(sunLabel);
+
+        // Planet data: [name, radius, distance from sun, orbit speed multiplier, texture]
+        const planetsData = [
+            { name: 'Mercury', radius: 0.1, distance: 3, speed: 0.004, texture: textures.mercury },
+            { name: 'Venus', radius: 0.2, distance: 4, speed: 0.0015, texture: textures.venus },
+            { name: 'Earth', radius: 0.2, distance: 5, speed: 0.001, texture: textures.earth },
+            { name: 'Mars', radius: 0.15, distance: 6, speed: 0.0008, texture: textures.mars },
+            { name: 'Jupiter', radius: 0.5, distance: 8, speed: 0.0004, texture: textures.jupiter },
+            { name: 'Saturn', radius: 0.45, distance: 10, speed: 0.0003, texture: textures.saturn },
+            { name: 'Uranus', radius: 0.35, distance: 12, speed: 0.0002, texture: textures.uranus },
+            { name: 'Neptune', radius: 0.35, distance: 14, speed: 0.0001, texture: textures.neptune }
+        ];
+
+        // Arrays to store the planets and their labels
+        const planets = [];
+        const planetLabels = [];
+
+        // Create and position planets and their labels
+        planetsData.forEach(planetData => {
+            const planet = createPlanetWithTexture(planetData.radius, planetData.texture);
+            planet.userData = { distance: planetData.distance, speed: planetData.speed }; // Store orbit data
+            scene.add(planet);
+            planets.push(planet);
+
+            // Create label
+            const label = createTextSprite(planetData.name);
+            label.position.set(planet.position.x, planet.position.y + planetData.radius + 0.3, planet.position.z); // Position above planet
+            scene.add(label);
+            planetLabels.push(label);
+
+            // Create visible orbit as a ring
+            const orbitGeometry = new THREE.RingGeometry(planetData.distance - 0.01, planetData.distance + 0.01, 64);
+            const orbitMaterial = new THREE.MeshBasicMaterial({ color: 0x888888, side: THREE.DoubleSide });
+            const orbit = new THREE.Mesh(orbitGeometry, orbitMaterial);
+            orbit.rotation.x = Math.PI / 2; // Rotate the orbit to be flat on the XY plane
+            scene.add(orbit);
+        });
+
+        // Add Saturn's rings
+const createSaturnRings = () => {
+    // Create a ring geometry for Saturn's rings (inner radius, outer radius, segments)
+    const ringGeometry = new THREE.RingGeometry(0.55, 0.9, 64); // Adjust radii for inner/outer rings
+    const ringMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00, side: THREE.DoubleSide });
+    const saturnRings = new THREE.Mesh(ringGeometry, ringMaterial);
+
+    // Rotate the rings to be horizontal and add a slight tilt
+    saturnRings.rotation.x = Math.PI / 2;  // Make rings horizontal
+    saturnRings.rotation.z = 0.5;  // Add a tilt to the rings for a more realistic look
+    return saturnRings;
+};
+
+// Create the Saturn planet and rings
+const saturn = createPlanetWithTexture(0.45, textures.saturn); // Create Saturn
+const saturnRings = createSaturnRings(); // Create Saturn's rings
+saturn.add(saturnRings); // Attach the rings to Saturn
+scene.add(saturn);
+
+
+        // Add lighting
+        const ambientLight = new THREE.AmbientLight(0x404040); // Soft white light
+        scene.add(ambientLight);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1); // Sunlight
+        directionalLight.position.set(5, 5, 5).normalize();
+        scene.add(directionalLight);
+
+        // Set camera position
+        camera.position.z = 20;
+
+        // Animation loop
+        const animate = function () {
+            requestAnimationFrame(animate);
+
+            // Update the position of each planet for orbits and update the label position
+            planets.forEach((planet, index) => {
+                const time = Date.now() * planet.userData.speed;
+                planet.position.x = planet.userData.distance * Math.cos(time);
+                planet.position.z = planet.userData.distance * Math.sin(time);
+
+                // Rotate planets on their own axis
+                planet.rotation.y += 0.02;
+
+                // Position the label above the planet and always face the camera
+                const label = planetLabels[index];
+                label.position.set(planet.position.x, planet.position.y + planet.geometry.parameters.radius + 0.3, planet.position.z);
+                label.lookAt(camera.position);
+            });
+
+            // Rotate the Sun
+            sun.rotation.y += 0.005;
+
+            renderer.render(scene, camera);
+        };
+
+        animate();
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
